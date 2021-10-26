@@ -1,0 +1,7 @@
+name: schema
+version: "0.1"
+author: Alexandre C. <acadeau.dev@gmail.com>
+about: Run you SQL change easily
+subcommands:
+  - setup:
+      about: setup database to receive schema change

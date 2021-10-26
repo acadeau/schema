@@ -1,7 +1,13 @@
 use clap::App;
+use postgres::{Client, Error as PostgresError, Transaction};
 
-fn setup_schema(database_uri: &str) -> bool {
-    true
+// Function to setup schema in postgres database
+fn setup_schema(database_transaction: &mut Transaction) -> Result<(), PostgresError> {
+    database_transaction.batch_execute(
+        "
+      CREATE SCHEMA db_state;
+    ",
+    )
 }
 
 fn main() {
@@ -48,9 +54,15 @@ mod tests {
             db
         );
 
-        super::setup_schema(connection_string);
-
         let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
+
+        let mut transaction = conn.transaction().unwrap();
+        let transaction_result = match super::setup_schema(&mut transaction) {
+            Ok(_) => transaction.commit(),
+            Err(_) => transaction.rollback(),
+        };
+
+        assert!(transaction_result.is_ok());
 
         let check_schema_created = conn
             .query(

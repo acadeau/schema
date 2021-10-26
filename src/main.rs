@@ -1,4 +1,6 @@
-use clap::App;
+use std::env;
+
+use clap::{App, Arg};
 use postgres::{Client, Error as PostgresError};
 
 // Function to setup schema in postgres database
@@ -22,13 +24,36 @@ fn setup(client: &mut Client) -> Result<(), PostgresError> {
     }
 }
 
-fn main() {
-    let _matches = App::new("schema")
+fn main() -> Result<(), PostgresError> {
+    let matches = App::new("schema")
+        .arg(
+            Arg::new("database")
+                .short('d')
+                .value_name("DATABASE URI")
+                .about("Sets a custom database uri")
+                .takes_value(true),
+        )
         .subcommand(
             App::new("setup") //
                 .about("Setup database to receive schema change"),
         )
         .get_matches();
+
+    let database_uri = match matches.value_of("database") {
+        Some(database) => database.to_string(),
+        None => env::var("DATABASE_URI").expect("Can't find database URI"),
+    };
+
+    let mut client = postgres::Client::connect(&database_uri, postgres::NoTls)
+        .expect("Can't connect to database");
+
+    match matches.subcommand_name() {
+        Some("setup") => setup(&mut client)?,
+        None => println!("Command was not specified"),
+        _ => println!("Some other subcommand was used"),
+    };
+
+    Ok(())
 }
 
 #[cfg(test)]

@@ -2,12 +2,26 @@ use clap::App;
 use postgres::{Client, Error as PostgresError, Transaction};
 
 // Function to setup schema in postgres database
-fn setup_schema(database_transaction: &mut Transaction) -> Result<(), PostgresError> {
-    database_transaction.batch_execute(
-        "
-      CREATE SCHEMA db_state;
-    ",
-    )
+fn setup(client: &mut Client) -> Result<(), PostgresError> {
+    let mut transaction = client.transaction()?;
+    let initialisation_result = transaction
+        .batch_execute("CREATE SCHEMA db_state;")
+        .and_then(|_| {
+            transaction.batch_execute(
+                "
+              CREATE TABLE db_state.changes (
+                id serial PRIMARY KEY,
+                hash text NOT NULL,
+                name text NOT NULL,
+                author text NOT NULL,
+                email text NOT NULL
+              );",
+            )
+        });
+    match initialisation_result {
+        Ok(_) => transaction.commit(),
+        Err(_) => transaction.rollback(),
+    }
 }
 
 fn main() {
@@ -56,13 +70,9 @@ mod tests {
 
         let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
 
-        let mut transaction = conn.transaction().unwrap();
-        let transaction_result = match super::setup_schema(&mut transaction) {
-            Ok(_) => transaction.commit(),
-            Err(_) => transaction.rollback(),
-        };
+        let setup_result = super::setup(&mut conn);
 
-        assert!(transaction_result.is_ok());
+        assert!(setup_result.is_ok());
 
         let check_schema_created = conn
             .query(
@@ -72,5 +82,16 @@ mod tests {
             .unwrap();
         assert_eq!(check_schema_created.len(), 1);
         assert!(check_schema_created[0].get::<usize, bool>(0));
+
+        let check_table_created = conn
+            .query(
+                "SELECT EXISTS(SELECT FROM information_schema.tables
+                  WHERE  table_schema = 'db_state'
+                  AND    table_name   = 'changes');",
+                &[],
+            )
+            .unwrap();
+        assert_eq!(check_table_created.len(), 1);
+        assert!(check_table_created[0].get::<usize, bool>(0));
     }
 }

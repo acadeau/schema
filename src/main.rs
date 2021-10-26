@@ -1,5 +1,5 @@
 use clap::App;
-use postgres::{Client, Error as PostgresError, Transaction};
+use postgres::{Client, Error as PostgresError};
 
 // Function to setup schema in postgres database
 fn setup(client: &mut Client) -> Result<(), PostgresError> {
@@ -12,9 +12,7 @@ fn setup(client: &mut Client) -> Result<(), PostgresError> {
               CREATE TABLE db_state.changes (
                 id serial PRIMARY KEY,
                 hash text NOT NULL,
-                name text NOT NULL,
-                author text NOT NULL,
-                email text NOT NULL
+                name text NOT NULL
               );",
             )
         });

@@ -39,16 +39,17 @@ fn main() -> Result<(), PostgresError> {
         )
         .get_matches();
 
-    let database_uri = match matches.value_of("database") {
-        Some(database) => database.to_string(),
-        None => env::var("DATABASE_URI").expect("Can't find database URI"),
-    };
-
-    let mut client = postgres::Client::connect(&database_uri, postgres::NoTls)
-        .expect("Can't connect to database");
-
     match matches.subcommand_name() {
-        Some("setup") => setup(&mut client)?,
+        Some("setup") => {
+            let database_uri = match matches.value_of("database") {
+                Some(database) => database.to_string(),
+                None => env::var("DATABASE_URI").expect("Can't find database URI"),
+            };
+
+            let mut client = postgres::Client::connect(&database_uri, postgres::NoTls)
+                .expect("Can't connect to database");
+            setup(&mut client)?
+        }
         None => println!("Command was not specified"),
         _ => println!("Some other subcommand was used"),
     };
